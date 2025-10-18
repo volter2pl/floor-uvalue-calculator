@@ -7,6 +7,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 1.70,
     color: '#9E9E9E',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'jastrych',
@@ -14,6 +15,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 1.40,
     color: '#BDBDBD',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'anhydryt',
@@ -21,6 +23,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 1.20,
     color: '#D7CCC8',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'styrobeton',
@@ -28,6 +31,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.10,
     color: '#E0E0E0',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'xps',
@@ -35,6 +39,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.034,
     color: '#4FC3F7',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'eps70',
@@ -42,6 +47,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.038,
     color: '#81D4FA',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'eps100',
@@ -49,6 +55,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.036,
     color: '#64B5F6',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'eps150',
@@ -56,6 +63,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.035,
     color: '#42A5F5',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'eps200',
@@ -63,6 +71,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.034,
     color: '#2196F3',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'pir',
@@ -70,6 +79,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.022,
     color: '#FFD54F',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'welna',
@@ -77,6 +87,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.037,
     color: '#FFEB3B',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'osb3',
@@ -84,6 +95,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.13,
     color: '#A1887F',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'plytki',
@@ -91,6 +103,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 1.30,
     color: '#90A4AE',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'panel',
@@ -98,6 +111,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.20,
     color: '#8D6E63',
     isPredefined: true,
+    costPerM3: 0,
   },
   {
     id: 'folia-pe',
@@ -105,6 +119,7 @@ export const PREDEFINED_MATERIALS: Material[] = [
     lambda: 0.33,
     color: '#E1F5FE',
     isPredefined: true,
+    costPerM3: 0,
   },
 ];
 

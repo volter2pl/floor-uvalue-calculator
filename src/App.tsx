@@ -4,7 +4,7 @@ import { Material, Scheme } from './types';
 import { PREDEFINED_MATERIALS } from './constants';
 import { MaterialsPanel } from './components/MaterialsPanel';
 import { SchemeCard } from './components/SchemeCard';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 function App() {
   const [materials, setMaterials] = useLocalStorage<Material[]>('floor-materials', PREDEFINED_MATERIALS);
@@ -13,23 +13,66 @@ function App() {
       id: 'scheme-1',
       name: 'Schemat 1',
       layers: [],
+      area: 100,
     },
   ]);
   const [isPanelPinned, setIsPanelPinned] = useLocalStorage<boolean>('panel-pinned', true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const needsUpdate = materials.some((material) => material.costPerM3 === undefined);
+    if (needsUpdate) {
+      setMaterials(
+        materials.map((material) => ({
+          ...material,
+          costPerM3: material.costPerM3 ?? 0,
+        }))
+      );
+    }
+  }, [materials, setMaterials]);
+
+  useEffect(() => {
+    const needsUpdate = schemes.some((scheme) => scheme.area === undefined);
+    if (needsUpdate) {
+      setSchemes(
+        schemes.map((scheme) => ({
+          ...scheme,
+          area: scheme.area ?? 100,
+        }))
+      );
+    }
+  }, [schemes, setSchemes]);
+
+  const normalizedMaterials = useMemo(
+    () =>
+      materials.map((material) => ({
+        ...material,
+        costPerM3: material.costPerM3 ?? 0,
+      })),
+    [materials]
+  );
+
+  const normalizedSchemes = useMemo(
+    () =>
+      schemes.map((scheme) => ({
+        ...scheme,
+        area: scheme.area ?? 100,
+      })),
+    [schemes]
+  );
 
   const addMaterial = (material: Omit<Material, 'id'>) => {
     const newMaterial: Material = {
       ...material,
       id: `material-${Date.now()}`,
     };
-    setMaterials([...materials, newMaterial]);
+    setMaterials((prevMaterials) => [...prevMaterials, newMaterial]);
   };
 
   const deleteMaterial = (id: string) => {
-    setMaterials(materials.filter((m) => m.id !== id));
-    setSchemes(
-      schemes.map((scheme) => ({
+    setMaterials((prevMaterials) => prevMaterials.filter((m) => m.id !== id));
+    setSchemes((prevSchemes) =>
+      prevSchemes.map((scheme) => ({
         ...scheme,
         layers: scheme.layers.filter((layer) => layer.materialId !== id),
       }))
@@ -41,18 +84,28 @@ function App() {
       id: `scheme-${Date.now()}`,
       name: `Schemat ${schemes.length + 1}`,
       layers: [],
+      area: 100,
     };
-    setSchemes([...schemes, newScheme]);
+    setSchemes((prevSchemes) => [...prevSchemes, newScheme]);
   };
 
   const updateScheme = (updatedScheme: Scheme) => {
-    setSchemes(schemes.map((s) => (s.id === updatedScheme.id ? updatedScheme : s)));
+    setSchemes((prevSchemes) => prevSchemes.map((s) => (s.id === updatedScheme.id ? updatedScheme : s)));
   };
 
   const deleteScheme = (id: string) => {
-    if (schemes.length > 1) {
-      setSchemes(schemes.filter((s) => s.id !== id));
-    }
+    setSchemes((prevSchemes) => {
+      if (prevSchemes.length <= 1) {
+        return prevSchemes;
+      }
+      return prevSchemes.filter((s) => s.id !== id);
+    });
+  };
+
+  const updateMaterial = (id: string, updates: Partial<Material>) => {
+    setMaterials((prevMaterials) =>
+      prevMaterials.map((material) => (material.id === id ? { ...material, ...updates } : material))
+    );
   };
 
   return (
@@ -105,7 +158,7 @@ function App() {
                   >
                     <Menu size={24} />
                   </button>
-                  {materials.slice(0, 6).map((material) => (
+                  {normalizedMaterials.slice(0, 6).map((material) => (
                     <div
                       key={material.id}
                       className="w-10 h-10 rounded border-2 border-gray-300"
@@ -117,9 +170,10 @@ function App() {
               )}
               {(isPanelPinned || isMobileMenuOpen) && (
                 <MaterialsPanel
-                  materials={materials}
+                  materials={normalizedMaterials}
                   onAddMaterial={addMaterial}
                   onDeleteMaterial={deleteMaterial}
+                  onUpdateMaterial={updateMaterial}
                   isPinned={isPanelPinned}
                   onTogglePin={() => setIsPanelPinned(!isPanelPinned)}
                   isOpen={isMobileMenuOpen}
@@ -149,11 +203,11 @@ function App() {
 
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-6">
-                {schemes.map((scheme) => (
+                {normalizedSchemes.map((scheme) => (
                   <SchemeCard
                     key={scheme.id}
                     scheme={scheme}
-                    materials={materials}
+                    materials={normalizedMaterials}
                     onUpdateScheme={updateScheme}
                     onDeleteScheme={() => deleteScheme(scheme.id)}
                   />

@@ -4,6 +4,7 @@ export interface Material {
   lambda: number;
   color: string;
   isPredefined: boolean;
+  costPerM3: number;
 }
 
 export interface Layer {
@@ -16,10 +17,17 @@ export interface Scheme {
   id: string;
   name: string;
   layers: Layer[];
+  area: number;
 }
 
 export interface ThermalResult {
   u: number;
   r: number;
+  warnings: string[];
+}
+
+export interface CostResult {
+  totalCost: number;
+  perLayer: Record<string, number>;
   warnings: string[];
 }

@@ -6,18 +6,22 @@ interface MaterialsPanelProps {
   materials: Material[];
   onAddMaterial: (material: Omit<Material, 'id'>) => void;
   onDeleteMaterial: (id: string) => void;
+  onUpdateMaterial: (id: string, updates: Partial<Material>) => void;
   isPinned: boolean;
   onTogglePin: () => void;
   isOpen: boolean;
 }
 
-export function MaterialsPanel({ materials, onAddMaterial, onDeleteMaterial, isPinned, onTogglePin, isOpen }: MaterialsPanelProps) {
+export function MaterialsPanel({ materials, onAddMaterial, onDeleteMaterial, onUpdateMaterial, isPinned, onTogglePin, isOpen }: MaterialsPanelProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newMaterial, setNewMaterial] = useState({
     name: '',
     lambda: '',
     color: '#808080',
+    cost: '',
   });
+  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
+  const [editingCost, setEditingCost] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,15 +31,40 @@ export function MaterialsPanel({ materials, onAddMaterial, onDeleteMaterial, isP
       return;
     }
 
+    const cost = parseFloat(newMaterial.cost);
+
     onAddMaterial({
       name: newMaterial.name.trim(),
       lambda,
       color: newMaterial.color,
       isPredefined: false,
+      costPerM3: !isNaN(cost) && cost >= 0 ? cost : 0,
     });
 
-    setNewMaterial({ name: '', lambda: '', color: '#808080' });
+    setNewMaterial({ name: '', lambda: '', color: '#808080', cost: '' });
     setIsAdding(false);
+  };
+
+  const startEditingCost = (material: Material) => {
+    setEditingMaterialId(material.id);
+    setEditingCost(
+      material.costPerM3 && material.costPerM3 > 0
+        ? material.costPerM3.toString()
+        : ''
+    );
+  };
+
+  const handleEditCostSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMaterialId) return;
+
+    const normalizedValue = editingCost.replace(',', '.').trim();
+    const parsed = normalizedValue === '' ? 0 : Number(normalizedValue);
+    const safeCost = !Number.isNaN(parsed) && parsed >= 0 ? parsed : 0;
+
+    onUpdateMaterial(editingMaterialId, { costPerM3: safeCost });
+    setEditingMaterialId(null);
+    setEditingCost('');
   };
 
   return (
@@ -98,6 +127,18 @@ export function MaterialsPanel({ materials, onAddMaterial, onDeleteMaterial, isP
                 className="w-full h-10 border border-gray-300 rounded-lg cursor-pointer"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cena [zł/m³]</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={newMaterial.cost}
+                onChange={(e) => setNewMaterial({ ...newMaterial, cost: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="np. 450"
+              />
+            </div>
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -129,7 +170,44 @@ export function MaterialsPanel({ materials, onAddMaterial, onDeleteMaterial, isP
             />
             <div className="flex-1 min-w-0">
               <div className="font-medium text-gray-800 truncate">{material.name}</div>
-              <div className="text-sm text-gray-500">λ = {material.lambda} W/m·K</div>
+              <div className="text-sm text-gray-500">
+                λ = {material.lambda} W/m·K
+                <span className="mx-1 text-gray-300">•</span>
+                {((material.costPerM3 ?? 0) > 0
+                  ? `${(material.costPerM3 ?? 0).toLocaleString('pl-PL', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} zł/m³`
+                  : 'brak ceny')}
+              </div>
+              {editingMaterialId === material.id ? (
+                <form onSubmit={handleEditCostSubmit} className="mt-2 flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingCost}
+                    onChange={(e) => setEditingCost(e.target.value)}
+                    className="w-32 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.00"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Zapisz
+                  </button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => startEditingCost(material)}
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  {(material.costPerM3 ?? 0) > 0 ? 'Zmień cenę' : 'Dodaj cenę'}
+                </button>
+              )}
             </div>
             {!material.isPredefined && (
               <button
