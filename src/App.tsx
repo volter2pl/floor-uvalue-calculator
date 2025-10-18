@@ -190,19 +190,8 @@ function App() {
           )}
 
           <div className="flex-1">
-            <div className="flex items-center gap-4 mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">Schematy podłogi</h2>
-              <button
-                onClick={addScheme}
-                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                title="Dodaj schemat"
-              >
-                <Plus size={20} />
-              </button>
-            </div>
-
-            <div className="overflow-x-auto pb-4">
-              <div className="flex gap-6">
+            <div className="overflow-x-auto pb-4 snap-x snap-mandatory lg:snap-none">
+              <div className="flex gap-6 px-1">
                 {normalizedSchemes.map((scheme) => (
                   <SchemeCard
                     key={scheme.id}
@@ -212,6 +201,19 @@ function App() {
                     onDeleteScheme={() => deleteScheme(scheme.id)}
                   />
                 ))}
+                <button
+                  type="button"
+                  onClick={addScheme}
+                  className="min-w-[320px] max-w-[400px] flex-shrink-0 snap-center rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/40 text-blue-600 hover:bg-blue-100 transition-colors flex items-center justify-center"
+                  title="Dodaj nowy schemat"
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="p-4 rounded-full bg-blue-200/70 text-blue-700">
+                      <Plus size={32} />
+                    </div>
+                    <span className="text-sm font-medium">Dodaj nowy schemat</span>
+                  </div>
+                </button>
               </div>
             </div>
           </div>

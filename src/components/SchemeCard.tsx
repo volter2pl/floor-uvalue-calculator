@@ -22,13 +22,23 @@ interface SchemeCardProps {
 
 export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }: SchemeCardProps) {
   const [showUnit, setShowUnit] = useState<'u' | 'r'>('u');
-  const [dragState, setDragState] = useState<{
-    index: number;
-    pointerId: number;
-    startY: number;
-    initialTopThickness: number;
-    initialBottomThickness: number;
-  } | null>(null);
+  const [dragState, setDragState] = useState<
+    | {
+        type: 'between';
+        index: number;
+        pointerId: number;
+        startY: number;
+        initialTopThickness: number;
+        initialBottomThickness: number;
+      }
+    | {
+        type: 'top';
+        pointerId: number;
+        startY: number;
+        initialThickness: number;
+      }
+    | null
+  >(null);
   const lastDeltaRef = useRef<number | null>(null);
   const formatCurrency = (value: number) => currencyFormatter.format(value);
   const area = typeof scheme.area === 'number' ? scheme.area : 0;
@@ -42,7 +52,7 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
   const costResult = calculateCost(scheme.layers, materials, area);
   const warnings = [...thermalResult.warnings, ...costResult.warnings];
 
-  const addLayer = () => {
+  const addLayer = (position: 'top' | 'bottom' = 'top') => {
     const defaultMaterial = materials[0];
     if (!defaultMaterial) return;
 
@@ -54,7 +64,7 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
 
     onUpdateScheme({
       ...scheme,
-      layers: [...scheme.layers, newLayer],
+      layers: position === 'top' ? [newLayer, ...scheme.layers] : [...scheme.layers, newLayer],
     });
   };
 
@@ -123,11 +133,29 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
     lastDeltaRef.current = 0;
 
     setDragState({
+      type: 'between',
       index,
       pointerId: event.pointerId,
       startY: event.clientY,
       initialTopThickness: topLayer.thickness,
       initialBottomThickness: bottomLayer.thickness,
+    });
+  };
+
+  const handleTopHandlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const topLayer = scheme.layers[0];
+    if (!topLayer) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    lastDeltaRef.current = 0;
+
+    setDragState({
+      type: 'top',
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      initialThickness: topLayer.thickness,
     });
   };
 
@@ -152,33 +180,55 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
       const deltaPx = event.clientY - dragState.startY;
       const deltaMm = Math.round(deltaPx / PIXELS_PER_MM);
 
-      const maxIncreaseTop = Math.max(0, dragState.initialBottomThickness - MIN_LAYER_THICKNESS);
-      const maxDecreaseTop = Math.max(0, dragState.initialTopThickness - MIN_LAYER_THICKNESS);
+      if (dragState.type === 'between') {
+        const maxIncreaseTop = Math.max(0, dragState.initialBottomThickness - MIN_LAYER_THICKNESS);
+        const maxDecreaseTop = Math.max(0, dragState.initialTopThickness - MIN_LAYER_THICKNESS);
 
-      const clampedDelta = Math.max(-maxDecreaseTop, Math.min(deltaMm, maxIncreaseTop));
+        const clampedDelta = Math.max(-maxDecreaseTop, Math.min(deltaMm, maxIncreaseTop));
 
-      if (lastDeltaRef.current === clampedDelta) return;
-      lastDeltaRef.current = clampedDelta;
+        if (lastDeltaRef.current === clampedDelta) return;
+        lastDeltaRef.current = clampedDelta;
 
-      const newTopThickness = Math.round(dragState.initialTopThickness + clampedDelta);
-      const newBottomThickness = Math.round(dragState.initialBottomThickness - clampedDelta);
+        const newTopThickness = Math.round(dragState.initialTopThickness + clampedDelta);
+        const newBottomThickness = Math.round(dragState.initialBottomThickness - clampedDelta);
 
-      const updatedLayers = scheme.layers.map((layer, idx) => {
-        if (idx === dragState.index) {
-          return { ...layer, thickness: Math.max(MIN_LAYER_THICKNESS, newTopThickness) };
-        }
+        const updatedLayers = scheme.layers.map((layer, idx) => {
+          if (idx === dragState.index) {
+            return { ...layer, thickness: Math.max(MIN_LAYER_THICKNESS, newTopThickness) };
+          }
 
-        if (idx === dragState.index + 1) {
-          return { ...layer, thickness: Math.max(MIN_LAYER_THICKNESS, newBottomThickness) };
-        }
+          if (idx === dragState.index + 1) {
+            return { ...layer, thickness: Math.max(MIN_LAYER_THICKNESS, newBottomThickness) };
+          }
 
-        return layer;
-      });
+          return layer;
+        });
 
-      onUpdateScheme({
-        ...scheme,
-        layers: updatedLayers,
-      });
+        onUpdateScheme({
+          ...scheme,
+          layers: updatedLayers,
+        });
+      } else if (dragState.type === 'top') {
+        const maxDecrease = Math.max(0, dragState.initialThickness - MIN_LAYER_THICKNESS);
+        const clampedDelta = Math.min(deltaMm, maxDecrease);
+
+        if (lastDeltaRef.current === clampedDelta) return;
+        lastDeltaRef.current = clampedDelta;
+
+        const newThickness = Math.max(
+          MIN_LAYER_THICKNESS,
+          Math.round(dragState.initialThickness - clampedDelta)
+        );
+
+        const updatedLayers = scheme.layers.map((layer, idx) =>
+          idx === 0 ? { ...layer, thickness: newThickness } : layer
+        );
+
+        onUpdateScheme({
+          ...scheme,
+          layers: updatedLayers,
+        });
+      }
     };
 
     const handlePointerUp = (event: PointerEvent) => {
@@ -200,7 +250,7 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
   }, [dragState, onUpdateScheme, scheme]);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col min-w-[320px] max-w-[400px]">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col min-w-[320px] max-w-[400px] flex-shrink-0 snap-center">
       <div className="flex items-center justify-between mb-4">
         <input
           type="text"
@@ -249,115 +299,100 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
 
       <div className="flex-1 mb-4">
         <div className="bg-gradient-to-b from-gray-50 to-white rounded-lg border-2 border-gray-300 p-4 min-h-[400px] flex flex-col justify-end">
-          {scheme.layers.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-              Brak warstw
-            </div>
-          ) : (
-            <div className="flex flex-col">
-              {scheme.layers.map((layer, index) => {
-                const material = materials.find((m) => m.id === layer.materialId);
-                const heightPercent = totalHeight > 0 ? (layer.thickness / totalHeight) * 100 : 0;
-                const minHeight = 30;
-                const displayHeight = Math.max(minHeight, (heightPercent / 100) * 300);
+          <div className="flex flex-col">
+            <button
+              type="button"
+              onClick={() => addLayer('top')}
+              className="mb-2 self-stretch rounded border border-dashed border-blue-300 bg-blue-50/40 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
+              title="Dodaj nową warstwę na górze przekroju"
+            >
+              <Plus size={12} />
+              Dodaj warstwę na górze
+            </button>
+            {scheme.layers.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+                Brak warstw
+              </div>
+            ) : (
+              <>
+                <div
+                  className="h-3 flex items-center justify-center cursor-row-resize select-none"
+                  onPointerDown={handleTopHandlePointerDown}
+                  title="Przeciągnij aby zmienić grubość górnej warstwy"
+                >
+                  <div className="w-full h-1 bg-blue-500/60 rounded transition-colors hover:bg-blue-600" />
+                </div>
+                {scheme.layers.map((layer, index) => {
+                  const material = materials.find((m) => m.id === layer.materialId);
+                  const heightPercent = totalHeight > 0 ? (layer.thickness / totalHeight) * 100 : 0;
+                  const minHeight = 30;
+                  const displayHeight = Math.max(minHeight, (heightPercent / 100) * 300);
+                  const layerCost = costResult.perLayer[layer.id] ?? 0;
+                  const unitCost = material?.costPerM3 ?? 0;
 
-                return (
-                  <Fragment key={layer.id}>
-                    <div
-                      className="rounded border-2 border-gray-400 overflow-hidden shadow-sm"
-                      style={{
-                        backgroundColor: material?.color || '#ccc',
-                        height: `${displayHeight}px`,
-                        minHeight: `${minHeight}px`,
-                      }}
-                    >
-                      <div className="h-full flex items-center justify-center px-2">
-                        <div className="text-xs font-medium text-gray-800 text-center drop-shadow-sm truncate">
-                          {material?.name || 'Nieznany'} ({layer.thickness} mm)
+                  return (
+                    <Fragment key={layer.id}>
+                      <div
+                        className="relative rounded border-2 border-gray-400 overflow-hidden shadow-sm"
+                        style={{
+                          backgroundColor: material?.color || '#ccc',
+                          height: `${displayHeight}px`,
+                          minHeight: `${minHeight}px`,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => deleteLayer(layer.id)}
+                          className="absolute top-1 right-1 p-1 rounded-full bg-white/70 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors"
+                          title="Usuń tę warstwę"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                        <div className="h-full flex flex-col">
+                          <div className="flex-1 flex items-center justify-center px-2">
+                            <div className="text-xs font-medium text-gray-800 text-center drop-shadow-sm">
+                              {material?.name || 'Nieznany'} ({layer.thickness} mm)
+                            </div>
+                          </div>
+                          <div className="px-2 pb-2">
+                            <select
+                              value={layer.materialId}
+                              onChange={(e) => updateLayer(layer.id, { materialId: e.target.value })}
+                              className="w-full text-xs px-2 py-1 rounded border border-white/60 bg-white/80 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              {materials.map((mat) => (
+                                <option key={mat.id} value={mat.id}>
+                                  {mat.name}
+                                </option>
+                              ))}
+                            </select>
+                            {area > 0 && (
+                              <div className="mt-1 text-[10px] text-gray-600">
+                                {unitCost > 0
+                                  ? `Koszt: ${formatCurrency(layerCost)}`
+                                  : 'Brak ceny materiału'}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    {index < scheme.layers.length - 1 && (
-                      <div
-                        className="h-3 flex items-center justify-center cursor-row-resize select-none"
-                        onPointerDown={(event) => handleDividerPointerDown(event, index)}
-                        title="Przeciągnij aby zmienić grubości warstw"
-                      >
-                        <div className="w-full h-1 bg-blue-500/60 rounded transition-colors hover:bg-blue-600" />
-                      </div>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </div>
-          )}
+                      {index < scheme.layers.length - 1 && (
+                        <div
+                          className="h-3 flex items-center justify-center cursor-row-resize select-none"
+                          onPointerDown={(event) => handleDividerPointerDown(event, index)}
+                          title="Przeciągnij aby zmienić grubości warstw"
+                        >
+                          <div className="w-full h-1 bg-blue-500/60 rounded transition-colors hover:bg-blue-600" />
+                        </div>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </>
+            )}
+          </div>
         </div>
       </div>
-
-      <div className="space-y-3 mb-4 max-h-[300px] overflow-y-auto">
-        {scheme.layers.map((layer, index) => {
-          const material = materials.find((m) => m.id === layer.materialId);
-          return (
-            <div
-              key={layer.id}
-              className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200"
-            >
-              <div
-                className="w-6 h-6 rounded flex-shrink-0 border border-gray-300"
-                style={{ backgroundColor: material?.color || '#ccc' }}
-              />
-              <div className="flex-1 space-y-2">
-                <select
-                  value={layer.materialId}
-                  onChange={(e) => updateLayer(layer.id, { materialId: e.target.value })}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {materials.map((mat) => (
-                    <option key={mat.id} value={mat.id}>
-                      {mat.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  value={layer.thickness}
-                  onChange={(e) => {
-                    const nextValue = Math.max(0, parseFloat(e.target.value) || 0);
-                    updateLayer(layer.id, { thickness: nextValue });
-                  }}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Grubość (mm)"
-                  min="0"
-                  step="1"
-                />
-                {area > 0 && (
-                  <div className="text-xs text-gray-500">
-                    Koszt: {material && (material.costPerM3 ?? 0) > 0
-                      ? formatCurrency(costResult.perLayer[layer.id] ?? 0)
-                      : 'brak ceny'}
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => deleteLayer(layer.id)}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                title="Usuń warstwę"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      <button
-        onClick={addLayer}
-        className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 mb-4"
-      >
-        <Plus size={18} />
-        Dodaj warstwę
-      </button>
-
       <div className="border-t-2 border-gray-200 pt-4">
         <button
           onClick={() => setShowUnit(showUnit === 'u' ? 'r' : 'u')}
