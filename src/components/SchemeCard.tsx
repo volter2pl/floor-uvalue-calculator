@@ -1,7 +1,11 @@
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import { Scheme, Material, Layer } from '../types';
 import { calculateThermalProperties } from '../utils/calculations';
-import { useState } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+
+const MIN_LAYER_THICKNESS = 1;
+const PIXELS_PER_MM = 1;
 
 interface SchemeCardProps {
   scheme: Scheme;
@@ -12,6 +16,14 @@ interface SchemeCardProps {
 
 export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }: SchemeCardProps) {
   const [showUnit, setShowUnit] = useState<'u' | 'r'>('u');
+  const [dragState, setDragState] = useState<{
+    index: number;
+    pointerId: number;
+    startY: number;
+    initialTopThickness: number;
+    initialBottomThickness: number;
+  } | null>(null);
+  const lastDeltaRef = useRef<number | null>(null);
 
   const thermalResult = calculateThermalProperties(scheme.layers, materials);
 
@@ -57,6 +69,87 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
 
   const totalHeight = getTotalHeight();
 
+  const handleDividerPointerDown = (event: ReactPointerEvent<HTMLDivElement>, index: number) => {
+    const topLayer = scheme.layers[index];
+    const bottomLayer = scheme.layers[index + 1];
+
+    if (!topLayer || !bottomLayer) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    lastDeltaRef.current = 0;
+
+    setDragState({
+      index,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      initialTopThickness: topLayer.thickness,
+      initialBottomThickness: bottomLayer.thickness,
+    });
+  };
+
+  useEffect(() => {
+    if (!dragState) {
+      document.body.style.userSelect = '';
+      return;
+    }
+
+    document.body.style.userSelect = 'none';
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== dragState.pointerId) return;
+
+      const deltaPx = event.clientY - dragState.startY;
+      const deltaMm = Math.round(deltaPx / PIXELS_PER_MM);
+
+      const maxIncreaseTop = Math.max(0, dragState.initialBottomThickness - MIN_LAYER_THICKNESS);
+      const maxDecreaseTop = Math.max(0, dragState.initialTopThickness - MIN_LAYER_THICKNESS);
+
+      const clampedDelta = Math.max(-maxDecreaseTop, Math.min(deltaMm, maxIncreaseTop));
+
+      if (lastDeltaRef.current === clampedDelta) return;
+      lastDeltaRef.current = clampedDelta;
+
+      const newTopThickness = Math.round(dragState.initialTopThickness + clampedDelta);
+      const newBottomThickness = Math.round(dragState.initialBottomThickness - clampedDelta);
+
+      const updatedLayers = scheme.layers.map((layer, idx) => {
+        if (idx === dragState.index) {
+          return { ...layer, thickness: Math.max(MIN_LAYER_THICKNESS, newTopThickness) };
+        }
+
+        if (idx === dragState.index + 1) {
+          return { ...layer, thickness: Math.max(MIN_LAYER_THICKNESS, newBottomThickness) };
+        }
+
+        return layer;
+      });
+
+      onUpdateScheme({
+        ...scheme,
+        layers: updatedLayers,
+      });
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== dragState.pointerId) return;
+      setDragState(null);
+      lastDeltaRef.current = null;
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      document.body.style.userSelect = '';
+    };
+  }, [dragState, onUpdateScheme, scheme]);
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col min-w-[320px] max-w-[400px]">
       <div className="flex items-center justify-between mb-4">
@@ -82,29 +175,39 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
               Brak warstw
             </div>
           ) : (
-            <div className="space-y-1">
-              {scheme.layers.map((layer) => {
+            <div className="flex flex-col">
+              {scheme.layers.map((layer, index) => {
                 const material = materials.find((m) => m.id === layer.materialId);
                 const heightPercent = totalHeight > 0 ? (layer.thickness / totalHeight) * 100 : 0;
                 const minHeight = 30;
                 const displayHeight = Math.max(minHeight, (heightPercent / 100) * 300);
 
                 return (
-                  <div
-                    key={layer.id}
-                    className="rounded border-2 border-gray-400 overflow-hidden shadow-sm"
-                    style={{
-                      backgroundColor: material?.color || '#ccc',
-                      height: `${displayHeight}px`,
-                      minHeight: `${minHeight}px`,
-                    }}
-                  >
-                    <div className="h-full flex items-center justify-center px-2">
-                      <div className="text-xs font-medium text-gray-800 text-center drop-shadow-sm truncate">
-                        {material?.name || 'Nieznany'} ({layer.thickness} mm)
+                  <Fragment key={layer.id}>
+                    <div
+                      className="rounded border-2 border-gray-400 overflow-hidden shadow-sm"
+                      style={{
+                        backgroundColor: material?.color || '#ccc',
+                        height: `${displayHeight}px`,
+                        minHeight: `${minHeight}px`,
+                      }}
+                    >
+                      <div className="h-full flex items-center justify-center px-2">
+                        <div className="text-xs font-medium text-gray-800 text-center drop-shadow-sm truncate">
+                          {material?.name || 'Nieznany'} ({layer.thickness} mm)
+                        </div>
                       </div>
                     </div>
-                  </div>
+                    {index < scheme.layers.length - 1 && (
+                      <div
+                        className="h-3 flex items-center justify-center cursor-row-resize select-none"
+                        onPointerDown={(event) => handleDividerPointerDown(event, index)}
+                        title="Przeciągnij aby zmienić grubości warstw"
+                      >
+                        <div className="w-full h-1 bg-blue-500/60 rounded transition-colors hover:bg-blue-600" />
+                      </div>
+                    )}
+                  </Fragment>
                 );
               })}
             </div>
