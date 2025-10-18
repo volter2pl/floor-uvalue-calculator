@@ -250,7 +250,10 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
   }, [dragState, onUpdateScheme, scheme]);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col min-w-[320px] max-w-[400px] flex-shrink-0 snap-center">
+    <div
+      className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col min-w-[320px] max-w-[400px] flex-shrink-0 snap-center"
+      data-scheme-id={scheme.id}
+    >
       <div className="flex items-center justify-between mb-4">
         <input
           type="text"
@@ -316,7 +319,7 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
             ) : (
               <>
                 <div
-                  className="h-3 flex items-center justify-center cursor-row-resize select-none"
+                  className="h-4 flex items-center justify-center cursor-row-resize select-none touch-none"
                   onPointerDown={handleTopHandlePointerDown}
                   title="Przeciągnij aby zmienić grubość górnej warstwy"
                 >
@@ -378,7 +381,7 @@ export function SchemeCard({ scheme, materials, onUpdateScheme, onDeleteScheme }
                       </div>
                       {index < scheme.layers.length - 1 && (
                         <div
-                          className="h-3 flex items-center justify-center cursor-row-resize select-none"
+                          className="h-4 flex items-center justify-center cursor-row-resize select-none touch-none"
                           onPointerDown={(event) => handleDividerPointerDown(event, index)}
                           title="Przeciągnij aby zmienić grubości warstw"
                         >

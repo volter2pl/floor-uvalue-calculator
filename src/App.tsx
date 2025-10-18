@@ -4,7 +4,7 @@ import { Material, Scheme } from './types';
 import { PREDEFINED_MATERIALS } from './constants';
 import { MaterialsPanel } from './components/MaterialsPanel';
 import { SchemeCard } from './components/SchemeCard';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 
 function App() {
   const [materials, setMaterials] = useLocalStorage<Material[]>('floor-materials', PREDEFINED_MATERIALS);
@@ -18,6 +18,8 @@ function App() {
   ]);
   const [isPanelPinned, setIsPanelPinned] = useLocalStorage<boolean>('panel-pinned', true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const schemeListRef = useRef<HTMLDivElement | null>(null);
+  const [pendingScrollSchemeId, setPendingScrollSchemeId] = useState<string | null>(null);
 
   useEffect(() => {
     const needsUpdate = materials.some((material) => material.costPerM3 === undefined);
@@ -87,6 +89,7 @@ function App() {
       area: 100,
     };
     setSchemes((prevSchemes) => [...prevSchemes, newScheme]);
+    setPendingScrollSchemeId(newScheme.id);
   };
 
   const updateScheme = (updatedScheme: Scheme) => {
@@ -107,6 +110,25 @@ function App() {
       prevMaterials.map((material) => (material.id === id ? { ...material, ...updates } : material))
     );
   };
+
+  useEffect(() => {
+    if (!pendingScrollSchemeId) {
+      return;
+    }
+
+    const container = schemeListRef.current;
+    if (!container) {
+      return;
+    }
+
+    const target = container.querySelector<HTMLElement>(`[data-scheme-id="${pendingScrollSchemeId}"]`);
+    if (target) {
+      requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        setPendingScrollSchemeId(null);
+      });
+    }
+  }, [pendingScrollSchemeId, normalizedSchemes]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -191,7 +213,7 @@ function App() {
 
           <div className="flex-1">
             <div className="overflow-x-auto pb-4 snap-x snap-mandatory lg:snap-none">
-              <div className="flex gap-6 px-1">
+              <div className="flex gap-6 px-1" ref={schemeListRef}>
                 {normalizedSchemes.map((scheme) => (
                   <SchemeCard
                     key={scheme.id}
